@@ -136,11 +136,17 @@ function list(value: string | undefined): string[] {
     .filter((s) => s.length > 0);
 }
 
-/** Reviews arrive with `<br/>` line breaks and occasional stray HTML. */
+/**
+ * Reviews arrive with `<br/>` line breaks and occasional stray HTML. A
+ * spreadsheet-saved export instead carries real newlines inside the quoted
+ * field, so paragraph breaks must survive: unlike text(), this collapses only
+ * horizontal whitespace and never newlines.
+ */
 function review(value: string | undefined): string | null {
-  const raw = text(value);
-  if (!raw) return null;
-  return raw
+  const raw = (value ?? '').trim();
+  if (raw.length === 0) return null;
+  const cleaned = raw
+    .replace(/\r\n?/g, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/?(p|div)>/gi, '\n')
     .replace(/<[^>]+>/g, '')
@@ -150,10 +156,11 @@ function review(value: string | undefined): string | null {
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
     .split('\n')
-    .map((line) => line.trim())
+    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 function toBook(row: GoodreadsRow, dateOrder: DayMonthOrder): Book | null {
