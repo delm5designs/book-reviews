@@ -2,13 +2,10 @@
  * Build step: data/goodreads_library_export.csv -> src/data/books.json
  *
  * Runs automatically before `vite dev` / `vite build` (see package.json) and
- * in the "Update shelf" GitHub Actions workflow. It never invents data: when
- * the CSV is missing it writes an empty array and the UI shows an empty-shelf
- * state that explains how to add the export.
- *
-
- * A missing CSV is a warning (the site renders its empty state). A CSV that
- * exists but cannot be parsed, or lacks Goodreads' core columns, is an error.
+ * in the "Update shelf" GitHub Actions workflow. It never invents data: a
+ * missing CSV is a warning and writes an empty array, so the UI shows its
+ * empty-shelf state. A CSV that exists but cannot be parsed, or that lacks
+ * Goodreads' core columns, is an error and fails the build.
  *
  * Accepts the raw Goodreads export and the common "opened in a spreadsheet
  * and re-saved" variant (locale-formatted dates, ISBN wrappers stripped,
