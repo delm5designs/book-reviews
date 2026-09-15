@@ -1,0 +1,88 @@
+# Section 6 - keeping the shelf up to date.
+#
+# Goodreads has no public API, so the source of truth is the CSV you export from
+# Goodreads and commit to data/goodreads_library_export.csv. On every push and
+# pull request this workflow:
+#   1. validates the export and regenerates src/data/books.json
+#      (a missing CSV is a warning, a malformed one fails the run),
+#   2. posts a per-shelf summary to the run,
+#   3. type-checks, lints and builds, so it doubles as CI for UI changes,
+#   4. on `main`, commits the regenerated JSON back so the repo always contains
+#      the data the live site was built from.
+#
+# Deployment itself is handled by deploy.yml, which is triggered by the same push
+# to main and regenerates books.json again during its own build, so the site is
+# never stale even if the commit-back step has nothing to do.
+name: Update shelf
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-shelf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-shelf:
+    name: Validate export and regenerate books.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          # Needed so the commit-back step pushes to the branch, not a detached SHA.
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Goodreads export and regenerate books.json
+        id: shelf
+        run: npm run shelf:build
+
+      - name: Summarise shelf
+        if: always() && steps.shelf.outputs.summary != ''
+        env:
+          SUMMARY: ${{ steps.shelf.outputs.summary }}
+        run: |
+          {
+            echo "## Shelf summary"
+            echo
+            echo "| Shelf | Books |"
+            echo "|---|---|"
+            echo "$SUMMARY" | jq -r '.byExclusiveShelf | to_entries[] | "| \(.key) | \(.value) |"'
+            echo "| **total** | **$(echo "$SUMMARY" | jq -r .total)** |"
+            echo
+            echo "- Rated: $(echo "$SUMMARY" | jq -r .rated)"
+            echo "- Reviewed: $(echo "$SUMMARY" | jq -r .reviewed)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Type-check, lint and build
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run build
+
+      - name: Commit regenerated books.json
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          if git diff --quiet -- src/data/books.json; then
+            echo "books.json already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/books.json
+          git commit -m "chore(shelf): regenerate books.json from Goodreads export"
+          git push

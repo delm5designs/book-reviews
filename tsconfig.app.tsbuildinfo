@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/components/BookCard.tsx","./src/components/BookCover.tsx","./src/components/BookGrid.tsx","./src/components/EmptyShelf.tsx","./src/components/Header.tsx","./src/components/RatingStars.tsx","./src/components/ShelfToolbar.tsx","./src/lib/covers.ts","./src/lib/shelf.ts","./src/types/book.ts"],"version":"5.9.3"}
