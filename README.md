@@ -15,7 +15,9 @@ data/goodreads_library_export.csv ──▶ scripts/build-shelf.ts ──▶ src
 - **`scripts/build-shelf.ts`** normalises the CSV into `src/data/books.json`
   (strips Goodreads' `="…"` ISBN wrappers, converts dates to ISO, cleans review
   markup, drops duplicate rows, and never copies *Private Notes*). It runs
-  automatically before `npm run dev` and `npm run build`.
+  automatically before `npm run dev` and `npm run build`. It accepts both the raw
+  Goodreads download and an export that has been re-saved by a spreadsheet, where
+  dates come back in a locale format and columns may be missing.
 - **The UI** (`src/`) renders the shelf with filters for Goodreads' exclusive
   shelves (read / currently reading / want to read), custom shelf tags, plain
   text search, and sorting. Covers come from Open Library by ISBN, with a

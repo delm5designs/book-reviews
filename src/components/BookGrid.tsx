@@ -10,7 +10,7 @@ export function BookGrid({ books }: { books: Book[] }) {
     );
   }
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <ul className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {books.map((b) => (
         <li key={b.id}>
           <BookCard book={b} />

@@ -11,9 +11,9 @@ export function Header({ summary }: { summary: ShelfSummary }) {
       </p>
       {summary.total > 0 && (
         <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <Stat label={read === 1 ? "book read" : "books read"} value={read} />
-          <Stat label="rated" value={summary.rated} />
-          <Stat label="reviewed" value={summary.reviewed} />
+          <Stat label={read === 1 ? 'book read' : 'books read'} value={read} />
+          {summary.rated > 0 && <Stat label="rated" value={summary.rated} />}
+          {summary.reviewed > 0 && <Stat label="reviewed" value={summary.reviewed} />}
         </dl>
       )}
     </header>

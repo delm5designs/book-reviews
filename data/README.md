@@ -15,3 +15,13 @@ What happens next:
   which publishes the site to GitHub Pages.
 
 The `Private Notes` column is never copied into the site output.
+
+## A note on spreadsheet-edited exports
+
+The parser accepts the file exactly as Goodreads produces it, and also the
+common variant that has been opened in Excel, Numbers or Sheets and re-saved.
+Re-saving usually rewrites dates from `YYYY/MM/DD` into a locale format
+(`15/09/2026` or `09/15/2026`) and may drop the `Average Rating` column. Day
+and month order is detected per file, so a re-saved export still imports
+correctly. Committing the untouched Goodreads download is still the safest
+route.

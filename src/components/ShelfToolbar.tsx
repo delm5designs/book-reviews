@@ -19,6 +19,8 @@ export function ShelfToolbar({ query, onChange, summary, tags, resultCount }: Sh
           {SHELF_FILTERS.map(({ value, label }) => {
             const count = value === 'all' ? summary.total : (summary.byExclusiveShelf[value] ?? 0);
             const active = query.shelf === value;
+            // An empty shelf is noise; keep it only when it is the current selection.
+            if (count === 0 && value !== 'all' && !active) return null;
             return (
               <button
                 key={value}

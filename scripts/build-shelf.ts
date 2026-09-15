@@ -10,6 +10,10 @@
  * A missing CSV is a warning (the site renders its empty state). A CSV that
  * exists but cannot be parsed, or lacks Goodreads' core columns, is an error.
  *
+ * Accepts the raw Goodreads export and the common "opened in a spreadsheet
+ * and re-saved" variant (locale-formatted dates, ISBN wrappers stripped,
+ * Average Rating column dropped).
+ *
  * Privacy: the "Private Notes" column is deliberately NOT copied into the
  * public JSON. Everything else in the export is public on Goodreads already.
  */
@@ -62,7 +66,7 @@ function fail(message: string): never {
 }
 
 function text(value: string | undefined): string | null {
-  const trimmed = value?.trim() ?? '';
+  const trimmed = (value ?? '').replace(/\s+/g, ' ').trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
@@ -77,15 +81,55 @@ function int(value: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Like int(), but Goodreads writes 0 for "unknown" page counts and years. */
+function positiveInt(value: string | undefined): number | null {
+  const n = int(value);
+  return n !== null && n > 0 ? n : null;
+}
+
 function float(value: string | undefined): number | null {
   const n = Number.parseFloat((value ?? '').trim());
   return Number.isFinite(n) ? n : null;
 }
 
-/** Goodreads dates are `YYYY/MM/DD`; normalise to ISO `YYYY-MM-DD`. */
-function isoDate(value: string | undefined): string | null {
-  const match = (value ?? '').trim().match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+/**
+ * Goodreads writes dates as `YYYY/MM/DD`. Exports that have been opened and
+ * re-saved in a spreadsheet often come back as `DD/MM/YYYY` or `MM/DD/YYYY`
+ * depending on locale, so the day/month order is detected once per file:
+ * if any date has a first field over 12 it must be day-first, if any has a
+ * second field over 12 it must be month-first, otherwise day-first is assumed.
+ */
+type DayMonthOrder = 'dmy' | 'mdy';
+
+function detectDayMonthOrder(values: (string | undefined)[]): DayMonthOrder {
+  let dayFirst = false;
+  let monthFirst = false;
+  for (const v of values) {
+    const m = (v ?? '').trim().match(/^(\d{1,2})[/-](\d{1,2})[/-]\d{4}$/);
+    if (!m) continue;
+    if (Number(m[1]) > 12) dayFirst = true;
+    if (Number(m[2]) > 12) monthFirst = true;
+  }
+  if (dayFirst && monthFirst) {
+    console.warn('⚠ Dates mix day-first and month-first forms; assuming day/month/year.');
+    return 'dmy';
+  }
+  return monthFirst ? 'mdy' : 'dmy';
+}
+
+function isoDate(value: string | undefined, order: DayMonthOrder): string | null {
+  const v = (value ?? '').trim();
+  const pad = (n: string) => n.padStart(2, '0');
+
+  const ymd = v.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  if (ymd) return `${ymd[1]}-${pad(ymd[2])}-${pad(ymd[3])}`;
+
+  const xyz = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (xyz) {
+    const [day, month] = order === 'dmy' ? [xyz[1], xyz[2]] : [xyz[2], xyz[1]];
+    return `${xyz[3]}-${pad(month)}-${pad(day)}`;
+  }
+  return null;
 }
 
 function list(value: string | undefined): string[] {
@@ -115,7 +159,7 @@ function review(value: string | undefined): string | null {
     .trim();
 }
 
-function toBook(row: GoodreadsRow): Book | null {
+function toBook(row: GoodreadsRow, dateOrder: DayMonthOrder): Book | null {
   const id = text(row['Book Id']);
   const title = text(row['Title']);
   if (!id || !title) return null;
@@ -134,11 +178,11 @@ function toBook(row: GoodreadsRow): Book | null {
     averageRating: float(row['Average Rating']),
     publisher: text(row['Publisher']),
     binding: text(row['Binding']),
-    pages: int(row['Number of Pages']),
-    yearPublished: int(row['Year Published']),
-    originalPublicationYear: int(row['Original Publication Year']),
-    dateRead: isoDate(row['Date Read']),
-    dateAdded: isoDate(row['Date Added']),
+    pages: positiveInt(row['Number of Pages']),
+    yearPublished: positiveInt(row['Year Published']),
+    originalPublicationYear: positiveInt(row['Original Publication Year']),
+    dateRead: isoDate(row['Date Read'], dateOrder),
+    dateAdded: isoDate(row['Date Added'], dateOrder),
     shelves: list(row['Bookshelves']).filter((s) => s !== row['Exclusive Shelf']),
     exclusiveShelf: text(row['Exclusive Shelf']) ?? 'read',
     review: review(row['My Review']),
@@ -191,11 +235,13 @@ function main(): void {
     fail(`CSV is missing required Goodreads columns: ${missing.join(', ')}\nFound: ${headers.join(', ')}`);
   }
 
+  const dateOrder = detectDayMonthOrder(parsed.data.flatMap((r) => [r['Date Read'], r['Date Added']]));
+
   const books: Book[] = [];
   const seen = new Set<string>();
   let skipped = 0;
   for (const row of parsed.data) {
-    const book = toBook(row);
+    const book = toBook(row, dateOrder);
     if (!book) {
       skipped += 1;
       continue;
