@@ -45,8 +45,15 @@ Requires Node 22.12 or newer (see `.nvmrc`).
 | Deploy to GitHub Pages | `.github/workflows/deploy.yml` | push to `main`; manual | Builds with the correct Pages base path and deploys with `actions/deploy-pages` |
 
 **One-time setup:** in the repository go to *Settings → Pages* and set
-*Source* to **GitHub Actions**. The site then lives at
+*Source* to **GitHub Actions**, not *Deploy from a branch*. The deploy
+workflow reads that setting and cannot create it: the automatic workflow token
+is not permitted to enable Pages, so the build fails with "Resource not
+accessible by integration" until Source is set by hand. The site then lives at
 `https://<owner>.github.io/<repo>/`.
+
+*Deploy from a branch* publishes the repository's raw files instead of the
+built site, which yields a blank page, because `index.html` points at
+TypeScript sources that only exist compiled inside `dist/`.
 
 ## Updating the shelf
 

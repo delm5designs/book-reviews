@@ -43,10 +43,11 @@ jobs:
 
       - name: Configure Pages
         id: pages
+        # Pages must already be enabled with Source set to "GitHub Actions"
+        # (Settings -> Pages). This step only reads that configuration; it
+        # cannot create it, because the automatic workflow token is not
+        # allowed to call the "create a Pages site" API.
         uses: actions/configure-pages@v5
-        with:
-          # Turn Pages on for the repo on first run if it isn't already.
-          enablement: true
 
       - name: Resolve base path
         id: base
