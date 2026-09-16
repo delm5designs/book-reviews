@@ -1,46 +1,43 @@
 /**
- * Shape of one book after the Goodreads CSV has been normalised by
- * scripts/build-shelf.ts. This is the only contract between the data
- * pipeline and the UI; keep both sides in sync when changing it.
+ * The Book model from the Virtual Library build guide, Section 3.
+ *
+ * The physical fields are what make each spine look like an individual
+ * object rather than a flat rectangle. They are derived, never hand-written:
+ * scripts/build-shelf.ts computes them from the Goodreads export.
  */
-
-/** Goodreads' three built-in exclusive shelves. Custom exclusive shelves are kept as plain strings. */
-export type ExclusiveShelf = 'read' | 'currently-reading' | 'to-read' | (string & {});
-
-export interface Book {
-  /** Goodreads "Book Id" - stable per edition. */
+export type Book = {
   id: string;
   title: string;
   author: string;
-  /** Goodreads "Author l-f" (last, first) - handy for sorting. */
-  authorSortKey: string;
-  additionalAuthors: string[];
-  /** ISBN-10 with Goodreads' `="..."` wrapper stripped; null when absent. */
-  isbn: string | null;
-  isbn13: string | null;
-  /** 1-5, or null when unrated (Goodreads exports 0 for unrated). */
-  myRating: number | null;
-  averageRating: number | null;
-  publisher: string | null;
-  binding: string | null;
-  pages: number | null;
-  yearPublished: number | null;
-  originalPublicationYear: number | null;
-  /** ISO date (YYYY-MM-DD) or null. */
-  dateRead: string | null;
-  dateAdded: string | null;
-  /** Non-exclusive shelves (tags) from the "Bookshelves" column. */
-  shelves: string[];
-  exclusiveShelf: ExclusiveShelf;
-  /** "My Review" with Goodreads' <br/> markup normalised to newlines; null when empty. */
-  review: string | null;
-  spoiler: boolean;
-  readCount: number;
-}
-
-export interface ShelfSummary {
-  total: number;
-  byExclusiveShelf: Record<string, number>;
-  rated: number;
-  reviewed: number;
-}
+  genres?: string[];
+  /** Real cover art. Empty string when the export carried no usable ISBN. */
+  cover: string;
+  year: number;
+  blurb: string;
+  /** 0 means unrated. */
+  rating: number;
+  /** e.g. "Jul 2026". Empty when the export has no read date. */
+  finished: string;
+  publisher: string;
+  binding: 'hardcover' | 'paperback' | 'mass';
+  /** Spine surface material. */
+  finish: 'cloth' | 'gloss' | 'matte';
+  /** Base spine color. Upgraded in the browser by sampling the cover's left edge. */
+  spine: string;
+  /** Accent pulled from the cover art. */
+  band?: string;
+  /** Lettering color. */
+  ink: string;
+  face: 'serif' | 'sans' | 'mono';
+  caps?: boolean;
+  /** Spine width in px. */
+  width: number;
+  /** Spine height in px. */
+  height: number;
+  /** Degrees of lean on the shelf. */
+  lean: number;
+  /** How far forward/back the book sits, px. */
+  depth: number;
+  /** 0-1 edge wear and ink fade. */
+  wear: number;
+};

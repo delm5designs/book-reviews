@@ -1,59 +1,40 @@
 /**
- * Build step: data/goodreads_library_export.csv -> src/data/books.json
+ * Build step: data/goodreads_library_export.csv -> src/data/books.ts
  *
- * Runs automatically before `vite dev` / `vite build` (see package.json) and
- * in the "Update shelf" GitHub Actions workflow. It never invents data: a
- * missing CSV is a warning and writes an empty array, so the UI shows its
- * empty-shelf state. A CSV that exists but cannot be parsed, or that lacks
- * Goodreads' core columns, is an error and fails the build.
+ * Implements Section 4 of the Virtual Library build guide, offline. Runs
+ * automatically before `vite dev` / `vite build` and in the "Update shelf"
+ * workflow.
  *
- * Accepts the raw Goodreads export and the common "opened in a spreadsheet
- * and re-saved" variant (locale-formatted dates, ISBN wrappers stripped,
- * Average Rating column dropped).
+ * It never invents books, and it never invents facts about them: blurbs and
+ * cover-sampled colors are not fabricated here. Covers are addressed by ISBN,
+ * which needs no lookup, and the spine palette is a deterministic fallback
+ * that the browser upgrades by sampling the real cover art (src/lib/palette.ts).
  *
- * Privacy: the "Private Notes" column is deliberately NOT copied into the
- * public JSON. Everything else in the export is public on Goodreads already.
+ * A missing CSV is a warning and writes an empty array, so the UI shows its
+ * empty-shelf state. A malformed CSV is an error and fails the build.
+ *
+ * Accepts the raw Goodreads export and the common "opened in a spreadsheet and
+ * re-saved" variant (locale-formatted dates, ISBN wrappers stripped, columns
+ * missing).
+ *
+ * Privacy: "Private Notes" is deliberately never copied into the output.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Papa from 'papaparse';
-import type { Book, ShelfSummary } from '../src/types/book.ts';
+import type { Book } from '../src/types/book.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CSV_PATH = resolve(ROOT, 'data/goodreads_library_export.csv');
-const OUT_PATH = resolve(ROOT, 'src/data/books.json');
+const OUT_PATH = resolve(ROOT, 'src/data/books.ts');
 
-/** Column headers exactly as Goodreads writes them in its library export. */
-type GoodreadsRow = Partial<Record<
-  | 'Book Id'
-  | 'Title'
-  | 'Author'
-  | 'Author l-f'
-  | 'Additional Authors'
-  | 'ISBN'
-  | 'ISBN13'
-  | 'My Rating'
-  | 'Average Rating'
-  | 'Publisher'
-  | 'Binding'
-  | 'Number of Pages'
-  | 'Year Published'
-  | 'Original Publication Year'
-  | 'Date Read'
-  | 'Date Added'
-  | 'Bookshelves'
-  | 'Bookshelves with positions'
-  | 'Exclusive Shelf'
-  | 'My Review'
-  | 'Spoiler'
-  | 'Private Notes'
-  | 'Read Count'
-  | 'Owned Copies',
-  string
->>;
+type GoodreadsRow = Partial<Record<string, string>>;
 
-const REQUIRED_COLUMNS = ['Book Id', 'Title', 'Author', 'Exclusive Shelf'] as const;
+const REQUIRED_COLUMNS = ['Book Id', 'Title', 'Author', 'Exclusive Shelf'];
+
+/** Section 4: only shelved-as-read and in-progress books reach the shelf. */
+const INCLUDED_SHELVES = new Set(['read', 'currently-reading']);
 
 const inGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 
@@ -62,15 +43,13 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function text(value: string | undefined): string | null {
-  const trimmed = (value ?? '').replace(/\s+/g, ' ').trim();
-  return trimmed.length > 0 ? trimmed : null;
+function text(value: string | undefined): string {
+  return (value ?? '').replace(/\s+/g, ' ').trim();
 }
 
 /** Goodreads wraps ISBNs as `="0345391802"` so spreadsheets keep leading zeros. */
-function isbn(value: string | undefined): string | null {
-  const cleaned = (value ?? '').replace(/^="?|"?$/g, '').replace(/[^0-9Xx]/g, '');
-  return cleaned.length > 0 ? cleaned.toUpperCase() : null;
+function isbn(value: string | undefined): string {
+  return (value ?? '').replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
 function int(value: string | undefined): number | null {
@@ -78,26 +57,19 @@ function int(value: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Like int(), but Goodreads writes 0 for "unknown" page counts and years. */
+/** Goodreads writes 0 for "unknown" page counts and years. */
 function positiveInt(value: string | undefined): number | null {
   const n = int(value);
   return n !== null && n > 0 ? n : null;
 }
 
-function float(value: string | undefined): number | null {
-  const n = Number.parseFloat((value ?? '').trim());
-  return Number.isFinite(n) ? n : null;
-}
-
-/**
- * Goodreads writes dates as `YYYY/MM/DD`. Exports that have been opened and
- * re-saved in a spreadsheet often come back as `DD/MM/YYYY` or `MM/DD/YYYY`
- * depending on locale, so the day/month order is detected once per file:
- * if any date has a first field over 12 it must be day-first, if any has a
- * second field over 12 it must be month-first, otherwise day-first is assumed.
- */
 type DayMonthOrder = 'dmy' | 'mdy';
 
+/**
+ * Goodreads writes `YYYY/MM/DD`. A spreadsheet re-save turns that into a
+ * locale format, so day/month order is detected once per file: a first field
+ * over 12 must be a day, a second field over 12 must be a month.
+ */
 function detectDayMonthOrder(values: (string | undefined)[]): DayMonthOrder {
   let dayFirst = false;
   let monthFirst = false;
@@ -114,103 +86,211 @@ function detectDayMonthOrder(values: (string | undefined)[]): DayMonthOrder {
   return monthFirst ? 'mdy' : 'dmy';
 }
 
-function isoDate(value: string | undefined, order: DayMonthOrder): string | null {
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Returns { sortKey: "YYYY-MM-DD", label: "Mon YYYY" }, or null. */
+function parseDate(value: string | undefined, order: DayMonthOrder): { sortKey: string; label: string } | null {
   const v = (value ?? '').trim();
   const pad = (n: string) => n.padStart(2, '0');
+  let y: string, mo: string, d: string;
 
   const ymd = v.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
-  if (ymd) return `${ymd[1]}-${pad(ymd[2])}-${pad(ymd[3])}`;
-
   const xyz = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (xyz) {
+  if (ymd) {
+    [y, mo, d] = [ymd[1], pad(ymd[2]), pad(ymd[3])];
+  } else if (xyz) {
     const [day, month] = order === 'dmy' ? [xyz[1], xyz[2]] : [xyz[2], xyz[1]];
-    return `${xyz[3]}-${pad(month)}-${pad(day)}`;
+    [y, mo, d] = [xyz[3], pad(month), pad(day)];
+  } else {
+    return null;
   }
-  return null;
+
+  const monthIndex = Number(mo) - 1;
+  if (monthIndex < 0 || monthIndex > 11) return null;
+  return { sortKey: `${y}-${mo}-${d}`, label: `${MONTHS[monthIndex]} ${y}` };
 }
 
-function list(value: string | undefined): string[] {
-  return (value ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+/** Stable 32-bit hash, so every derived physical property is reproducible. */
+function hash(input: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** A deterministic 0-1 stream from one seed, so each property varies independently. */
+function rng(seed: string, salt: string): number {
+  return (hash(`${seed}:${salt}`) % 10000) / 10000;
+}
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+const round = (n: number, places = 0) => Number(n.toFixed(places));
+
+/** Slug used as the stable id, matching the guide's `title-slug-index` shape. */
+function slug(title: string, index: number): string {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 28)
+    .replace(/-$/, '');
+  return `${base}-${index}`;
 }
 
 /**
- * Reviews arrive with `<br/>` line breaks and occasional stray HTML. A
- * spreadsheet-saved export instead carries real newlines inside the quoted
- * field, so paragraph breaks must survive: unlike text(), this collapses only
- * horizontal whitespace and never newlines.
+ * Deterministic warm palette. The browser replaces these by sampling the real
+ * cover art; this is the guide's documented fallback for when that is not
+ * possible, and the only honest option at build time with no network.
  */
-function review(value: string | undefined): string | null {
-  const raw = (value ?? '').trim();
-  if (raw.length === 0) return null;
-  const cleaned = raw
-    .replace(/\r\n?/g, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div)>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .split('\n')
-    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  return cleaned.length > 0 ? cleaned : null;
+const CLOTH_HUES = [
+  18, // oxblood
+  26, // tan
+  34, // ochre
+  44, // mustard
+  96, // olive
+  142, // forest
+  186, // teal
+  212, // slate blue
+  224, // navy
+  348, // deep red
+];
+
+function palette(seed: string): { spine: string; band: string; ink: string } {
+  const hue = CLOTH_HUES[Math.floor(rng(seed, 'hue') * CLOTH_HUES.length) % CLOTH_HUES.length];
+  const light = 22 + rng(seed, 'light') * 16;
+  const sat = 22 + rng(seed, 'sat') * 20;
+  const spine = hslToHex(hue, sat, light);
+  const band = hslToHex((hue + 16) % 360, sat + 16, Math.min(72, light + 26));
+  return { spine, band, ink: light > 55 ? '#241f19' : '#faf7f0' };
 }
 
-function toBook(row: GoodreadsRow, dateOrder: DayMonthOrder): Book | null {
-  const id = text(row['Book Id']);
-  const title = text(row['Title']);
-  if (!id || !title) return null;
+function hslToHex(h: number, s: number, l: number): string {
+  const sN = s / 100;
+  const lN = l / 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = sN * Math.min(lN, 1 - lN);
+  const f = (n: number) => lN - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = (x: number) =>
+    Math.round(255 * x)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
 
-  const rating = int(row['My Rating']);
+/** Section 4's physical derivations, all driven by page count plus the hash. */
+function physical(seed: string, pages: number | null): Pick<
+  Book,
+  'binding' | 'finish' | 'height' | 'width' | 'lean' | 'depth' | 'wear' | 'face' | 'caps'
+> {
+  const p = pages ?? 300;
+  const binding: Book['binding'] = p > 420 ? 'hardcover' : p < 260 ? 'mass' : 'paperback';
+  const finish: Book['finish'] =
+    binding === 'hardcover' ? 'cloth' : rng(seed, 'finish') < 0.5 ? 'gloss' : 'matte';
+
+  const heightRange =
+    binding === 'hardcover' ? [236, 254] : binding === 'mass' ? [196, 210] : [214, 230];
+  const height = Math.round(heightRange[0] + rng(seed, 'height') * (heightRange[1] - heightRange[0]));
+
+  const jitter = (rng(seed, 'jitter') - 0.5) * 6;
+  const width = Math.round(clamp(p * 0.055 + jitter, 16, 58));
+
+  const faces: Book['face'][] = ['serif', 'sans', 'mono'];
+  const faceRoll = rng(seed, 'face');
+  const face = faces[faceRoll < 0.6 ? 0 : faceRoll < 0.85 ? 1 : 2];
+
+  return {
+    binding,
+    finish,
+    height,
+    width,
+    lean: round(-5 * rng(seed, 'lean'), 1),
+    depth: round(-7 + rng(seed, 'depth') * 14, 1),
+    wear: round(rng(seed, 'wear') * 0.35, 2),
+    face,
+    caps: rng(seed, 'caps') < 0.35,
+  };
+}
+
+/**
+ * Section 4's genre set. The export carries no shelf tags, so every book falls
+ * to the documented default rather than being assigned a genre it never had.
+ */
+function genresFor(row: GoodreadsRow): string[] {
+  const shelves = text(row['Bookshelves'])
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
+  const map: Record<string, string> = {
+    fiction: 'Fiction',
+    'literary-fiction': 'Fiction',
+    nonfiction: 'Nonfiction',
+    'non-fiction': 'Nonfiction',
+    'sci-fi': 'Sci-Fi',
+    scifi: 'Sci-Fi',
+    'science-fiction': 'Sci-Fi',
+    mystery: 'Mystery & Thriller',
+    thriller: 'Mystery & Thriller',
+    fantasy: 'Fantasy',
+    romance: 'Romance',
+  };
+
+  const found = [...new Set(shelves.map((s) => map[s]).filter(Boolean))];
+  return found.length > 0 ? found : ['Nonfiction'];
+}
+
+function toBook(row: GoodreadsRow, index: number, order: DayMonthOrder): (Book & { sortKey: string }) | null {
+  const title = text(row['Title']);
+  if (!title || !text(row['Book Id'])) return null;
+  if (!INCLUDED_SHELVES.has(text(row['Exclusive Shelf']))) return null;
+
+  const id = slug(title, index);
+  const seed = `${text(row['Book Id'])}:${title}`;
+  const pages = positiveInt(row['Number of Pages']);
+  const key = isbn(row['ISBN13']) || isbn(row['ISBN']);
+  const read = parseDate(row['Date Read'], order);
+  const added = parseDate(row['Date Added'], order);
+  const rating = int(row['My Rating']) ?? 0;
 
   return {
     id,
     title,
-    author: text(row['Author']) ?? 'Unknown author',
-    authorSortKey: text(row['Author l-f']) ?? text(row['Author']) ?? '',
-    additionalAuthors: list(row['Additional Authors']),
-    isbn: isbn(row['ISBN']),
-    isbn13: isbn(row['ISBN13']),
-    myRating: rating && rating > 0 ? rating : null,
-    averageRating: float(row['Average Rating']),
+    author: text(row['Author']) || 'Unknown author',
+    genres: genresFor(row),
+    // ISBN-addressed covers need no API lookup. default=false makes Open
+    // Library 404 rather than return a blank pixel, so the UI can fall back.
+    cover: key ? `https://covers.openlibrary.org/b/isbn/${key}-L.jpg?default=false` : '',
+    year: positiveInt(row['Original Publication Year']) ?? positiveInt(row['Year Published']) ?? 0,
+    // Not fabricated: the export carries no description and this build has no
+    // network. The detail view typesets title and author when blurb is empty.
+    blurb: '',
+    rating: rating > 0 ? rating : 0,
+    finished: read?.label ?? '',
     publisher: text(row['Publisher']),
-    binding: text(row['Binding']),
-    pages: positiveInt(row['Number of Pages']),
-    yearPublished: positiveInt(row['Year Published']),
-    originalPublicationYear: positiveInt(row['Original Publication Year']),
-    dateRead: isoDate(row['Date Read'], dateOrder),
-    dateAdded: isoDate(row['Date Added'], dateOrder),
-    shelves: list(row['Bookshelves']).filter((s) => s !== row['Exclusive Shelf']),
-    exclusiveShelf: text(row['Exclusive Shelf']) ?? 'read',
-    review: review(row['My Review']),
-    spoiler: (text(row['Spoiler']) ?? '').toLowerCase() === 'true',
-    readCount: int(row['Read Count']) ?? 0,
+    ...palette(seed),
+    ...physical(seed, pages),
+    sortKey: read?.sortKey ?? added?.sortKey ?? '',
   };
 }
 
-function summarise(books: Book[]): ShelfSummary {
-  const byExclusiveShelf: Record<string, number> = {};
-  for (const b of books) {
-    byExclusiveShelf[b.exclusiveShelf] = (byExclusiveShelf[b.exclusiveShelf] ?? 0) + 1;
-  }
-  return {
-    total: books.length,
-    byExclusiveShelf,
-    rated: books.filter((b) => b.myRating !== null).length,
-    reviewed: books.filter((b) => b.review !== null).length,
-  };
+function serialise(books: Book[]): string {
+  const body = books.map((b) => `  ${JSON.stringify(b)},`).join('\n');
+  return `// GENERATED FILE - do not edit.
+// Written by scripts/build-shelf.ts from data/goodreads_library_export.csv.
+// Run \`npm run shelf:build\` after replacing the export.
+import type { Book } from '../types/book';
+
+export const books: Book[] = [
+${body}
+];
+`;
 }
 
 function write(books: Book[]): void {
   mkdirSync(dirname(OUT_PATH), { recursive: true });
-  writeFileSync(OUT_PATH, JSON.stringify(books, null, 2) + '\n');
+  writeFileSync(OUT_PATH, serialise(books));
 }
 
 function main(): void {
@@ -239,42 +319,41 @@ function main(): void {
     fail(`CSV is missing required Goodreads columns: ${missing.join(', ')}\nFound: ${headers.join(', ')}`);
   }
 
-  const dateOrder = detectDayMonthOrder(parsed.data.flatMap((r) => [r['Date Read'], r['Date Added']]));
+  const order = detectDayMonthOrder(parsed.data.flatMap((r) => [r['Date Read'], r['Date Added']]));
 
-  const books: Book[] = [];
+  const rows: (Book & { sortKey: string })[] = [];
   const seen = new Set<string>();
   let skipped = 0;
-  for (const row of parsed.data) {
-    const book = toBook(row, dateOrder);
+  for (const [i, row] of parsed.data.entries()) {
+    const book = toBook(row, i, order);
     if (!book) {
       skipped += 1;
       continue;
     }
-    if (seen.has(book.id)) continue; // Goodreads occasionally duplicates rows across shelves
+    if (seen.has(book.id)) continue;
     seen.add(book.id);
-    books.push(book);
+    rows.push(book);
   }
 
-  // Newest reads first; unread items fall back to date added.
-  books.sort((a, b) => {
-    const ak = a.dateRead ?? a.dateAdded ?? '';
-    const bk = b.dateRead ?? b.dateAdded ?? '';
-    return bk.localeCompare(ak);
-  });
+  // Newest finished date first, per Section 4.
+  rows.sort((a, b) => b.sortKey.localeCompare(a.sortKey) || a.title.localeCompare(b.title));
 
+  const books: Book[] = rows.map((row) => {
+    const book: Book & { sortKey?: string } = { ...row };
+    delete book.sortKey;
+    return book;
+  });
   write(books);
 
-  const summary = summarise(books);
-  console.log(`✔ Wrote ${summary.total} books to src/data/books.json`);
-  for (const [shelf, count] of Object.entries(summary.byExclusiveShelf).sort()) {
-    console.log(`  ${shelf.padEnd(18)} ${count}`);
-  }
-  console.log(`  ${'rated'.padEnd(18)} ${summary.rated}`);
-  console.log(`  ${'reviewed'.padEnd(18)} ${summary.reviewed}`);
-  if (skipped > 0) console.log(`  skipped ${skipped} row(s) without an id/title`);
+  const withCover = books.filter((b) => b.cover !== '').length;
+  console.log(`✔ Wrote ${books.length} books to src/data/books.ts`);
+  console.log(`  ${'with cover art'.padEnd(18)} ${withCover}`);
+  console.log(`  ${'rated'.padEnd(18)} ${books.filter((b) => b.rating > 0).length}`);
+  console.log(`  ${'with read date'.padEnd(18)} ${books.filter((b) => b.finished !== '').length}`);
+  if (skipped > 0) console.log(`  skipped ${skipped} row(s): no id/title, or not on a read shelf`);
 
-  // Machine-readable summary for the GitHub Actions step summary.
   if (process.env.GITHUB_OUTPUT) {
+    const summary = { total: books.length, withCover, rated: books.filter((b) => b.rating > 0).length };
     writeFileSync(process.env.GITHUB_OUTPUT, `summary=${JSON.stringify(summary)}\n`, { flag: 'a' });
   }
 }

@@ -1,0 +1,222 @@
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import type { Book } from '../types/book';
+import { COVER_W } from './bookFaces';
+
+export interface SpineRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** The pull-out itself, and the pause before the panel follows it. */
+const SLIDE_MS = 900;
+const RETRACT_MS = 620;
+const PANEL_DELAY_MS = 260;
+
+interface BookDetailProps {
+  books: Book[];
+  index: number;
+  rect: SpineRect;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+}
+
+export function BookDetail({ books, index, rect, onIndexChange, onClose }: BookDetailProps) {
+  const [out, setOut] = useState(false);
+  const book = books[index];
+
+  // Start in the shelf pose, then flip on the next frame so the transition runs.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setOut(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const retract = useCallback(() => {
+    setOut(false);
+    window.setTimeout(onClose, RETRACT_MS);
+  }, [onClose]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        retract();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        onIndexChange((index - 1 + books.length) % books.length);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        onIndexChange((index + 1) % books.length);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [index, books.length, onIndexChange, retract]);
+
+  const pose = useMemo(() => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const narrow = vw < 720;
+
+    const coverH = narrow ? vh * 0.42 : Math.min(vh * 0.6, 480);
+    const scale = coverH / rect.height;
+    const coverW = COVER_W * scale;
+
+    // rotateY(-90deg) swings the hinged cover into view. The hinge is the
+    // spine's right edge and the cover folds away from the reader, so after the
+    // turn it occupies the space to the RIGHT of the spine's centre. The delta
+    // therefore has to account for half the cover's scaled width.
+    const spineCentreX = rect.left + rect.width / 2;
+    const coverCentreX = spineCentreX + coverW / 2;
+    const coverCentreY = rect.top + rect.height / 2;
+
+    const targetX = narrow ? vw / 2 : vw * 0.32;
+    const targetY = narrow ? vh * 0.34 : vh / 2;
+
+    return { dx: targetX - coverCentreX, dy: targetY - coverCentreY, scale, coverW, coverH, narrow };
+  }, [rect]);
+
+  const shelfPose = 'translate3d(0,0,0) scale(1) rotateY(-26deg)';
+  const outPose = `translate3d(${pose.dx}px, ${pose.dy}px, 0) scale(${pose.scale}) rotateY(-90deg)`;
+
+  const shell: CSSProperties = {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+    transformStyle: 'preserve-3d',
+    transform: out ? outPose : shelfPose,
+    transition: `transform ${SLIDE_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`,
+  };
+
+  return (
+    <div className="fixed inset-0 z-[120]" role="dialog" aria-modal="true" aria-label={`${book.title} by ${book.author}`}>
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={retract}
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-background/70 backdrop-blur-xl transition-opacity duration-700"
+        style={{ opacity: out ? 1 : 0 }}
+      />
+
+      <div className="pointer-events-none absolute inset-0" style={{ perspective: '1600px' }}>
+        <div className="absolute" style={shell}>
+          {/* The spine face, edge-on once the book has turned. */}
+          <div className="absolute inset-0" style={{ background: book.spine }} />
+          {/* The front cover, hinged at the spine's right edge. */}
+          <div
+            className="absolute top-0 left-full overflow-hidden shadow-[0_40px_80px_-30px_rgba(40,30,20,0.9)]"
+            style={{
+              width: COVER_W,
+              height: rect.height,
+              transformOrigin: 'left center',
+              transform: 'rotateY(90deg)',
+              background: book.spine,
+              color: book.ink,
+            }}
+          >
+            <CoverArt book={book} />
+          </div>
+        </div>
+      </div>
+
+      <DetailPanel book={book} pose={pose} out={out} onClose={retract} onPrev={() => onIndexChange((index - 1 + books.length) % books.length)} onNext={() => onIndexChange((index + 1) % books.length)} />
+    </div>
+  );
+}
+
+/** Open Library 404s for plenty of ISBNs, so a failed load falls back too. */
+function CoverArt({ book }: { book: Book }) {
+  const [failed, setFailed] = useState(false);
+  if (!book.cover || failed) return <TypesetCover book={book} />;
+  return (
+    <img
+      src={book.cover}
+      alt=""
+      className="h-full w-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+/** Shown when Open Library has no artwork: the book sets its own cover. */
+function TypesetCover({ book }: { book: Book }) {
+  return (
+    <div className="flex h-full w-full flex-col justify-between p-[6%] text-center" style={{ background: book.spine }}>
+      <span className="font-mono text-[6px] uppercase tracking-[0.3em] opacity-60">{book.publisher}</span>
+      <span className="font-display text-[9px] leading-tight">{book.title}</span>
+      <span className="font-mono text-[5px] uppercase tracking-[0.25em] opacity-70">{book.author}</span>
+    </div>
+  );
+}
+
+interface DetailPanelProps {
+  book: Book;
+  pose: { coverW: number; coverH: number; narrow: boolean };
+  out: boolean;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}
+
+function DetailPanel({ book, pose, out, onClose, onPrev, onNext }: DetailPanelProps) {
+  const style: CSSProperties = pose.narrow
+    ? { left: '50%', top: `calc(34% + ${pose.coverH / 2}px + 28px)`, transform: 'translateX(-50%)', width: 'min(88vw, 420px)' }
+    : { left: '52%', top: '50%', transform: 'translateY(-50%)', width: 'min(38vw, 440px)' };
+
+  return (
+    <div
+      className="pointer-events-auto absolute"
+      style={{
+        ...style,
+        opacity: out ? 1 : 0,
+        transitionProperty: 'opacity, transform',
+        transitionDuration: '700ms',
+        transitionDelay: `${PANEL_DELAY_MS}ms`,
+        transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
+      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/80">
+        {book.finished ? `Finished ${book.finished}` : 'In the library'}
+      </p>
+      <h2 className="mt-3 font-display text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.1]">{book.title}</h2>
+      <p className="mt-2 text-[17px] text-muted">{book.author}</p>
+
+      <p className="mt-4 font-mono text-[12px] uppercase tracking-[0.16em] text-muted">
+        {[book.year > 0 ? book.year : null, book.publisher || null, book.binding].filter(Boolean).join(' · ')}
+      </p>
+
+      <Rating value={book.rating} />
+
+      {book.blurb && <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-foreground/85">{book.blurb}</p>}
+
+      <div className="mt-8 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.2em]">
+        <button type="button" onClick={onPrev} className="border border-border px-3 py-2 transition-colors hover:border-primary hover:text-primary">
+          ← Previous
+        </button>
+        <button type="button" onClick={onNext} className="border border-border px-3 py-2 transition-colors hover:border-primary hover:text-primary">
+          Next →
+        </button>
+        <button type="button" onClick={onClose} className="px-3 py-2 text-muted transition-colors hover:text-foreground">
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Rating({ value }: { value: number }) {
+  if (value <= 0) {
+    return <p className="mt-4 font-mono text-[12px] uppercase tracking-[0.2em] text-muted">Unrated</p>;
+  }
+  return (
+    <p className="mt-4 flex items-center gap-1 text-primary" aria-label={`${value} out of 5`}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <svg key={i} viewBox="0 0 20 20" className={`h-4 w-4 ${i < value ? 'fill-current' : 'fill-border'}`} aria-hidden="true">
+          <path d="M10 1.6l2.5 5.2 5.7.8-4.1 4 1 5.7L10 14.6l-5.1 2.7 1-5.7-4.1-4 5.7-.8z" />
+        </svg>
+      ))}
+    </p>
+  );
+}

@@ -1,38 +1,46 @@
 # Book Reviews
 
-A personal bookshelf and review site, generated from a Goodreads library export
-and published to GitHub Pages. No backend, no database, no AI: a static
-React + TypeScript + Tailwind site built with Vite.
+A personal virtual library: a horizontal shelf of real books rendered in 3D,
+each with its own spine, cover art and physical character. Built from a
+Goodreads export and published to GitHub Pages. No backend and no database.
+
+Implements the Virtual Library build guide. Two parts of that guide are
+deliberately excluded from this build: the AI natural-language search endpoint
+(Section 5) and the visitor recommendations database (Section 6). Search uses
+the guide's documented no-AI fallback, which is plain client-side matching.
 
 ## How it works
 
 ```
-data/goodreads_library_export.csv ──▶ scripts/build-shelf.ts ──▶ src/data/books.json ──▶ React UI ──▶ dist/ ──▶ GitHub Pages
+data/goodreads_library_export.csv ──▶ scripts/build-shelf.ts ──▶ src/data/books.ts ──▶ 3D shelf ──▶ dist/ ──▶ GitHub Pages
 ```
 
 - **`data/goodreads_library_export.csv`** is the single source of truth. Export it
   from Goodreads (*My Books → Import and export → Export Library*) and commit it.
-- **`scripts/build-shelf.ts`** normalises the CSV into `src/data/books.json`
-  (strips Goodreads' `="…"` ISBN wrappers, converts dates to ISO, cleans review
-  markup, drops duplicate rows, and never copies *Private Notes*). It runs
-  automatically before `npm run dev` and `npm run build`. It accepts both the raw
-  Goodreads download and an export that has been re-saved by a spreadsheet, where
-  dates come back in a locale format and columns may be missing.
-- **The UI** (`src/`) renders the shelf with filters for Goodreads' exclusive
-  shelves (read / currently reading / want to read), custom shelf tags, plain
-  text search, and sorting. Covers come from Open Library by ISBN, with a
-  generated fallback tile when none exists.
-- When `books.json` is empty the site shows an empty-shelf page with setup
-  instructions. It never shows sample books.
+- **`scripts/build-shelf.ts`** turns the CSV into `src/data/books.ts`. It keeps
+  only the `read` and `currently-reading` shelves, addresses cover art by ISBN,
+  and derives each book's physical properties (binding, finish, height, width,
+  lean, depth, wear, lettering) from its page count plus a stable hash, so the
+  shelf looks lived-in and renders identically on every build. It never copies
+  *Private Notes*, and it never invents a book or a blurb.
+- **Spine colours** ship as a deterministic warm fallback and are upgraded in the
+  browser by sampling each cover's left edge (`src/lib/palette.ts`). The build
+  step cannot do this: it has no browser and no network.
+- **The shelf** (`src/components/Shelf.tsx`) curves the rail with perspective,
+  loops seamlessly once the row is wide enough, and pans by wheel, drag or arrow
+  keys. Hovering pulls a book forward with a floating metadata card; clicking
+  slides it out of the shelf into a front-cover detail view.
+- When the library is empty the site shows setup instructions. It never shows
+  sample books.
 
 ## Local development
 
 ```sh
 npm install
-npm run dev        # regenerates books.json, then starts Vite
-npm run build      # type-checks, regenerates books.json, builds to dist/
+npm run dev        # regenerates books.ts, then starts Vite
+npm run build      # type-checks, regenerates books.ts, builds to dist/
 npm run lint
-npm run shelf:build  # regenerate books.json on its own; warns if the CSV is missing, fails if it is malformed
+npm run shelf:build  # regenerate books.ts on its own; warns if the CSV is missing, fails if it is malformed
 ```
 
 Requires Node 22.12 or newer (see `.nvmrc`).
@@ -41,7 +49,7 @@ Requires Node 22.12 or newer (see `.nvmrc`).
 
 | Workflow | File | Trigger | What it does |
 |---|---|---|---|
-| Update shelf | `.github/workflows/update-shelf.yml` | every push and PR; manual | Validates the export, posts a per-shelf summary, type-checks, lints and builds (so it doubles as CI), and on `main` commits the regenerated `books.json` |
+| Update shelf | `.github/workflows/update-shelf.yml` | every push and PR; manual | Validates the export, posts a per-shelf summary, type-checks, lints and builds (so it doubles as CI), and on `main` commits the regenerated `books.ts` |
 | Deploy to GitHub Pages | `.github/workflows/deploy.yml` | push to `main`; manual | Builds with the correct Pages base path and deploys with `actions/deploy-pages` |
 
 **One-time setup:** in the repository go to *Settings → Pages* and set
@@ -63,6 +71,10 @@ TypeScript sources that only exist compiled inside `dist/`.
 
 ## Out of scope by design
 
-- No AI search endpoint.
-- No database or server component.
-- No invented or placeholder books.
+- No AI search endpoint (build guide Section 5). Search is the guide's
+  client-side fallback.
+- No database or server component (build guide Section 6), so there is no
+  visitor "Recommend a book" shelf.
+- No invented or placeholder books, and no invented blurbs. The Goodreads export
+  carries no descriptions and the build has no network, so `blurb` is empty and
+  the detail view typesets the title and author instead.
