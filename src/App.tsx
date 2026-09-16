@@ -14,21 +14,21 @@ export default function App() {
   const handleChange = useCallback((next: Book[] | null) => setVisible(next), []);
 
   return (
-    <div className="grain relative min-h-screen overflow-hidden">
-      {/* A slow warm haze, so the paper never looks flat. */}
+    <div className="relative min-h-screen overflow-hidden bg-page">
+      {/* A slow cream haze, so the paper never looks flat. */}
       <div
         aria-hidden="true"
         className="animate-drift pointer-events-none absolute -top-1/3 left-1/2 h-[120vh] w-[120vw] -translate-x-1/2 rounded-full"
-        style={{ background: 'radial-gradient(closest-side, var(--color-glow), transparent 70%)', opacity: 0.6 }}
+        style={{ background: 'radial-gradient(closest-side, var(--color-cream-300), transparent 68%)', opacity: 0.55 }}
       />
 
       <div className="relative">
-        <header className="animate-rise mx-auto max-w-6xl px-6 pt-10 sm:px-10">
-          <p className="font-mono text-[11px] uppercase tracking-[0.34em] text-muted">A personal archive</p>
+        <header className="animate-rise mx-auto w-full max-w-[1140px] px-[5vw] pt-10">
+          <p className="label rail-label">A personal archive</p>
           <div className="mt-3">
             <TypedTitle />
           </div>
-          <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
+          <p className="label-muted mt-4">
             {library.length} {library.length === 1 ? 'volume' : 'volumes'}
           </p>
 
@@ -39,13 +39,13 @@ export default function App() {
           {library.length === 0 ? (
             <EmptyShelf />
           ) : shown.length === 0 ? (
-            <p className="py-24 text-center font-display text-2xl font-light italic text-muted">No books match</p>
+            <p className="display py-24 text-center text-[28px] text-muted">No books match</p>
           ) : (
             <Shelf books={shown} />
           )}
         </main>
 
-        <footer className="px-6 pb-10 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-muted/70 sm:px-10">
+        <footer className="label-muted px-[5vw] pb-10 text-center opacity-70">
           Built from a Goodreads export · Covers via Open Library
         </footer>
       </div>
@@ -87,15 +87,15 @@ function useCoverPalettes(books: Book[]): Book[] {
 function EmptyShelf() {
   return (
     <section className="mx-auto max-w-lg px-6 py-24 text-center">
-      <h2 className="font-display text-3xl font-light italic">The shelves are empty</h2>
-      <p className="mt-5 text-[15px] leading-relaxed text-muted">
+      <h2 className="display text-[40px]">The shelves are empty</h2>
+      <p className="measure-body mx-auto mt-5 text-muted">
         This library is built from a Goodreads export. Add yours as
-        <code className="mx-1.5 font-mono text-[13px] text-foreground">data/goodreads_library_export.csv</code>
+        <code className="mx-1.5 rounded-[2px] bg-sunken px-1.5 py-0.5 text-[14.5px] text-strong">
+          data/goodreads_library_export.csv
+        </code>
         and the shelves fill themselves on the next build.
       </p>
-      <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-muted/80">
-        Goodreads → My Books → Import and export → Export Library
-      </p>
+      <p className="label-muted mt-6">Goodreads → My Books → Import and export → Export Library</p>
     </section>
   );
 }

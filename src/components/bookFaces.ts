@@ -26,8 +26,12 @@ export function coverWidthFor(book: Book): number {
   return book.height * COVER_RATIO[book.binding];
 }
 
+/**
+ * Spine lettering. The Morana system has two typefaces, so the data model's
+ * third face falls back to the sans rather than inventing a monospace.
+ */
 export const faceFont = {
   serif: 'font-display',
   sans: 'font-sans',
-  mono: 'font-mono',
+  mono: 'font-sans',
 } as const;

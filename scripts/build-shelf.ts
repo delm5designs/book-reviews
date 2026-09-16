@@ -173,39 +173,28 @@ function slug(title: string, index: number): string {
  * cover art; this is the guide's documented fallback for when that is not
  * possible, and the only honest option at build time with no network.
  */
-const CLOTH_HUES = [
-  18, // oxblood
-  26, // tan
-  34, // ochre
-  44, // mustard
-  96, // olive
-  142, // forest
-  186, // teal
-  212, // slate blue
-  224, // navy
-  348, // deep red
+/**
+ * Book-cloth colours drawn from the Morana ramps, so a book without cover art
+ * still belongs to the palette. The browser replaces these by sampling the real
+ * artwork; this is the fallback for when that is not possible.
+ */
+const CLOTH: { spine: string; band: string; ink: string }[] = [
+  { spine: '#3f3350', band: '#a08fbb', ink: '#faf7f0' }, // plum-600 / plum-300
+  { spine: '#56466b', band: '#c5b8d8', ink: '#faf7f0' }, // plum-500 / plum-200
+  { spine: '#3c6042', band: '#7ba37f', ink: '#faf7f0' }, // sage-600 / sage-300
+  { spine: '#4e7a55', band: '#a8b45f', ink: '#faf7f0' }, // sage-500 / olive-300
+  { spine: '#586528', band: '#a8b45f', ink: '#faf7f0' }, // olive-700 / olive-300
+  { spine: '#6f7c33', band: '#efe3a9', ink: '#faf7f0' }, // olive-600 / cream-400
+  { spine: '#2a2030', band: '#8a7e91', ink: '#faf7f0' }, // ink-700 / ink-300
+  { spine: '#4a3f50', band: '#c5b8d8', ink: '#faf7f0' }, // ink-500 / plum-200
+  { spine: '#8c3a34', band: '#efe3a9', ink: '#faf7f0' }, // critical / cream-400
+  { spine: '#a8722a', band: '#fbf7ea', ink: '#faf7f0' }, // caution / cream-200
+  { spine: '#ddcd8a', band: '#586528', ink: '#241f19' }, // cream-500 / olive-700
+  { spine: '#f4edd6', band: '#6f7c33', ink: '#241f19' }, // cream-300 / olive-600
 ];
 
 function palette(seed: string): { spine: string; band: string; ink: string } {
-  const hue = CLOTH_HUES[Math.floor(rng(seed, 'hue') * CLOTH_HUES.length) % CLOTH_HUES.length];
-  const light = 22 + rng(seed, 'light') * 16;
-  const sat = 22 + rng(seed, 'sat') * 20;
-  const spine = hslToHex(hue, sat, light);
-  const band = hslToHex((hue + 16) % 360, sat + 16, Math.min(72, light + 26));
-  return { spine, band, ink: light > 55 ? '#241f19' : '#faf7f0' };
-}
-
-function hslToHex(h: number, s: number, l: number): string {
-  const sN = s / 100;
-  const lN = l / 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = sN * Math.min(lN, 1 - lN);
-  const f = (n: number) => lN - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  const toHex = (x: number) =>
-    Math.round(255 * x)
-      .toString(16)
-      .padStart(2, '0');
-  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+  return CLOTH[Math.floor(rng(seed, 'cloth') * CLOTH.length) % CLOTH.length];
 }
 
 /** Section 4's physical derivations, all driven by page count plus the hash. */

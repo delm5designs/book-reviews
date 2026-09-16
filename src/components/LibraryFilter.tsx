@@ -66,9 +66,9 @@ export function LibraryFilter({ books, onChange }: LibraryFilterProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="What are you looking for?"
-          className="w-full border-0 border-b border-border bg-transparent pb-3 font-display text-[clamp(1.1rem,2.2vw,1.5rem)] font-light italic outline-none transition-colors placeholder:text-muted/70 focus:border-primary"
+          className="display w-full rounded-none border-0 border-b border-rule bg-transparent pb-3 text-[clamp(23px,2.4vw,28px)] text-strong outline-none transition-colors placeholder:text-muted/70 focus:border-reflective"
         />
-        <p className="mt-2 h-4 font-mono text-[11px] uppercase tracking-[0.22em] text-muted" aria-live="polite">
+        <p className="label-muted mt-3 h-4" aria-live="polite">
           {searching && matched ? `${matched.length} found` : ''}
         </p>
       </div>
@@ -97,8 +97,10 @@ function Pill({ active, onClick, label, count }: { active: boolean; onClick: () 
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`shrink-0 rounded-full border px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
-        active ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted hover:border-primary/60 hover:text-foreground'
+      className={`label-muted shrink-0 rounded-full border px-4 py-2 transition-colors ${
+        active
+          ? 'border-reflective bg-reflective text-[color:var(--text-on-dark)]'
+          : 'border-rule hover:border-reflective/60 hover:text-strong'
       }`}
     >
       {label}

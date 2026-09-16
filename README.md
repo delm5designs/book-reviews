@@ -33,6 +33,22 @@ data/goodreads_library_export.csv ──▶ scripts/build-shelf.ts ──▶ src
 - When the library is empty the site shows setup instructions. It never shows
   sample books.
 
+## Design system
+
+The interface follows the **Morana** guidelines: Newsreader for display type,
+Archivo for body and labels, and the cream / ink / plum / sage / olive ramps.
+Tokens live in `src/index.css` and nothing hardcodes a colour.
+
+Two rules from that system shape the markup, not just the CSS:
+
+- Uppercase is only ever a label, set in Archivo at 12px with 0.2em tracking.
+  The `label` and `label-muted` utilities exist so nothing else goes all-caps.
+- At most one italic word per line. The page heading italicises its last word
+  and nothing else.
+
+Books without cover art fall back to a cloth colour drawn from the same ramps,
+so the shelf stays on palette even when Open Library has no artwork.
+
 ## Local development
 
 ```sh

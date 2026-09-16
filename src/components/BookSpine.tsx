@@ -99,7 +99,7 @@ export function BookSpine({ book, scale, onOpen }: BookSpineProps) {
         // The hit target never transforms, so the book cannot slide out from
         // under the pointer and start a hover/unhover loop.
         style={{ width: w, height: h, zIndex: hovered ? 40 : undefined, transformStyle: 'preserve-3d' }}
-        className="relative shrink-0 cursor-pointer appearance-none border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        className="relative shrink-0 cursor-pointer appearance-none border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-reflective"
         aria-label={`${book.title} by ${book.author}`}
         onMouseEnter={enter}
         onMouseLeave={leave}
@@ -107,7 +107,7 @@ export function BookSpine({ book, scale, onOpen }: BookSpineProps) {
         onBlur={leave}
         onClick={() => buttonRef.current && onOpen(buttonRef.current)}
       >
-        <span className="absolute inset-0 block rounded-[2px] shadow-[0_18px_30px_-20px_rgba(40,30,20,0.85)]" style={inner}>
+        <span className="absolute inset-0 block rounded-[2px] shadow-[0_18px_30px_-20px_rgb(27_20_32_/_0.75)]" style={inner}>
           {/* The cover art wraps around the spine's left edge, as a printed book does. */}
           {cover && (
             <span
@@ -151,7 +151,7 @@ export function BookSpine({ book, scale, onOpen }: BookSpineProps) {
           {showAuthor && (
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 flex justify-center font-mono uppercase tracking-[0.18em] opacity-75"
+              className="absolute inset-x-0 flex justify-center font-sans font-medium uppercase tracking-[0.2em] opacity-75"
               style={{ writingMode: 'vertical-rl', bottom: 30 * scale, fontSize: 8 * scale }}
             >
               {book.author}
@@ -161,7 +161,7 @@ export function BookSpine({ book, scale, onOpen }: BookSpineProps) {
           {showPublisher && (
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 flex justify-center font-mono uppercase tracking-[0.2em] opacity-55"
+              className="absolute inset-x-0 flex justify-center font-sans font-medium uppercase tracking-[0.2em] opacity-55"
               style={{ bottom: 7 * scale, fontSize: 6 * scale }}
             >
               {publisherMark(book.publisher)}
@@ -252,26 +252,26 @@ function HoverCard({
 }) {
   return createPortal(
     <div
-      className="pointer-events-none fixed z-[100] w-[248px] -translate-x-1/2 -translate-y-full rounded-sm border border-border/70 bg-background/95 px-4 py-3 shadow-[0_24px_50px_-28px_rgba(40,30,20,0.9)] backdrop-blur-sm"
-      style={{ left, top }}
+      className="pointer-events-none fixed z-[100] w-[268px] -translate-x-1/2 -translate-y-full rounded-[2px] border border-rule bg-card px-5 py-4 backdrop-blur-sm"
+      style={{ left, top, boxShadow: 'var(--shadow-card)' }}
       role="status"
     >
       {cover && (
         <img
           src={cover}
           alt=""
-          className="mb-3 h-[190px] w-full rounded-[2px] object-cover shadow-[0_10px_20px_-12px_rgba(40,30,20,0.9)]"
+          className="mb-4 h-[200px] w-full rounded-[2px] object-cover"
         />
       )}
-      <p className="font-display text-[20px] leading-tight">{book.title}</p>
-      <p className="mt-1 text-[15px] text-muted">{book.author}</p>
-      <p className="mt-2 font-mono text-[14px] uppercase tracking-[0.1em] text-muted">
+      <p className="display text-[23px] text-strong">{book.title}</p>
+      <p className="mt-1.5 text-[14.5px] text-muted">{book.author}</p>
+      <p className="label-muted mt-3">
         {[book.year > 0 ? book.year : null, book.binding, book.rating > 0 ? `${book.rating}/5` : 'unrated']
           .filter(Boolean)
           .join(' · ')}
       </p>
       {book.genres && book.genres.length > 0 && (
-        <p className="mt-1 font-mono text-[14px] uppercase tracking-[0.1em] text-primary/80">{book.genres.join(' · ')}</p>
+        <p className="label mt-1.5">{book.genres.join(' · ')}</p>
       )}
     </div>,
     document.body,

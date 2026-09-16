@@ -1,28 +1,98 @@
 @import "tailwindcss";
 @source "../src";
 
-/* Section 7: font and color tokens become utilities (font-display, bg-background, …). */
-@theme inline {
-  --font-display: "Cormorant Garamond", Georgia, serif;
-  --font-sans: "Karla", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", ui-monospace, monospace;
+/*
+ * Morana design system.
+ *
+ * Colour ramps, type scale, spacing, radii and easings are taken from the
+ * Morana guidelines. Two rules from that system shape the markup as much as
+ * the CSS, so they are repeated where they apply:
+ *   - Uppercase is reserved for labels, and labels are Archivo at 12px with
+ *     0.2em tracking, in olive. It is the only all-caps in the system.
+ *   - At most one italic word per line.
+ */
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-border: var(--border);
-  --color-primary: var(--primary);
-  --color-glow: var(--glow);
+@theme inline {
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+
+  --color-page: var(--surface-page);
+  --color-card: var(--surface-card);
+  --color-sunken: var(--surface-sunken);
+  --color-inverse: var(--surface-inverse);
+
+  --color-strong: var(--text-strong);
+  --color-body: var(--text-body);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--text-accent);
+  --color-reflective: var(--text-reflective);
+  --color-rule: var(--rule);
+
+  --color-cream-100: #fdfbf4;
+  --color-cream-200: #fbf7ea;
+  --color-cream-300: #f4edd6;
+  --color-cream-400: #efe3a9;
+  --color-cream-500: #ddcd8a;
+  --color-ink-300: #8a7e91;
+  --color-ink-400: #6b5f72;
+  --color-ink-500: #4a3f50;
+  --color-ink-600: #362b3b;
+  --color-ink-700: #2a2030;
+  --color-ink-800: #1b1420;
+  --color-plum-200: #c5b8d8;
+  --color-plum-300: #a08fbb;
+  --color-plum-400: #6a5d7b;
+  --color-plum-500: #56466b;
+  --color-plum-600: #3f3350;
+  --color-sage-300: #7ba37f;
+  --color-sage-400: #668f66;
+  --color-sage-500: #4e7a55;
+  --color-sage-600: #3c6042;
+  --color-olive-300: #a8b45f;
+  --color-olive-400: #88944c;
+  --color-olive-500: #8a9a3f;
+  --color-olive-600: #6f7c33;
+  --color-olive-700: #586528;
+
+  /* Type scale, in px as the system specifies. */
+  --text-4xl: 80px;
+  --text-3xl: 56px;
+  --text-2xl: 40px;
+  --text-xl: 28px;
+  --text-lg: 23px;
+  --text-base: 17.5px;
+  --text-sm: 14.5px;
+  --text-2xs: 12px;
+
+  --radius-sm: 2px;
+  --radius-input: 3px;
 }
 
-/* Warm neutral paper tones in oklch. Never hardcode colors in components. */
 :root {
-  --background: oklch(0.895 0.004 95);
-  --foreground: oklch(0.28 0.008 80);
-  --muted: oklch(0.52 0.012 82);
-  --border: oklch(0.78 0.008 88);
-  --primary: oklch(0.5 0.085 52);
-  --glow: oklch(0.83 0.045 70);
+  --surface-page: #fbf7ea;
+  --surface-card: #fdfbf4;
+  --surface-sunken: #f4edd6;
+  --surface-inverse: #1b1420;
+
+  --text-strong: #1b1420;
+  --text-body: #362b3b;
+  --text-muted: #6b5f72;
+  --text-accent: #586528;
+  --text-reflective: #56466b;
+  --text-on-dark: #fbf7ea;
+
+  --rule: rgb(27 20 32 / 0.14);
+
+  --shadow-card: 0 1px 2px rgb(27 20 32 / 0.05), 0 8px 24px -18px rgb(27 20 32 / 0.5);
+  --shadow-raised: 0 2px 6px rgb(27 20 32 / 0.08), 0 40px 80px -40px rgb(27 20 32 / 0.6);
+
+  --ease-brand: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-expand: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-breathe: cubic-bezier(0.37, 0, 0.63, 1);
+
+  --container-max: 1140px;
+  --gutter-page: 5vw;
 
   color-scheme: light;
 }
@@ -34,27 +104,51 @@ body,
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--surface-page);
+  color: var(--text-body);
   font-family: var(--font-sans);
-  font-weight: 300;
+  font-weight: 400;
+  font-size: 17.5px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-/* A fractal-noise wash, so flat areas read as paper rather than screen. */
-@utility grain {
-  position: relative;
+/* Display type: Newsreader, tight, and never bold. */
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.024em;
+  line-height: 1.01;
+}
 
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.35;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-  }
+/* The only all-caps in the system. */
+@utility label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+  line-height: 1.4;
+}
+
+@utility label-muted {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+@utility rail-label {
+  letter-spacing: 0.34em;
+}
+
+@utility measure-body {
+  max-width: 42ch;
 }
 
 @utility no-scrollbar {
@@ -66,16 +160,16 @@ body {
   }
 }
 
-/* Motion is slow and floating. No bouncy springs anywhere. */
+/* Motion is slow and floating. No bouncy springs. */
 @keyframes drift {
   0%,
   100% {
     transform: translate3d(0, 0, 0) scale(1);
-    opacity: 0.55;
+    opacity: 0.5;
   }
   50% {
     transform: translate3d(2%, -3%, 0) scale(1.06);
-    opacity: 0.8;
+    opacity: 0.75;
   }
 }
 
@@ -101,7 +195,6 @@ body {
   }
 }
 
-/* The gap opens to the spine's width while the book glides in from the right. */
 @keyframes shelve-in {
   0% {
     max-width: 0;
@@ -120,11 +213,11 @@ body {
 }
 
 @utility animate-drift {
-  animation: drift 26s ease-in-out infinite;
+  animation: drift 26s var(--ease-breathe) infinite;
 }
 
 @utility animate-rise {
-  animation: rise 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: rise 900ms var(--ease-brand) both;
 }
 
 @utility animate-caret {
@@ -132,7 +225,7 @@ body {
 }
 
 @utility animate-shelve-in {
-  animation: shelve-in 1100ms cubic-bezier(0.22, 1, 0.32, 1) both;
+  animation: shelve-in 1100ms var(--ease-expand) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

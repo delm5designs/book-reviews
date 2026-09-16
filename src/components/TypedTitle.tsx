@@ -14,16 +14,21 @@ export function TypedTitle() {
   }, [count]);
 
   const done = count >= FULL.length;
+  // One italic word per line is the brand's limit, so only the last word leans.
+  const split = FULL.lastIndexOf(' ');
+  const typed = FULL.slice(0, count);
+  const roman = typed.slice(0, Math.min(count, split));
+  const italic = count > split ? typed.slice(split) : '';
 
   return (
-    <h1
-      aria-label={FULL}
-      className="font-display text-[clamp(2.4rem,6vw,4.5rem)] font-light italic leading-[1.05] tracking-tight"
-    >
-      <span aria-hidden="true">{FULL.slice(0, count)}</span>
+    <h1 aria-label={FULL} className="display text-[clamp(40px,7vw,80px)]">
+      <span aria-hidden="true">{roman}</span>
+      <span aria-hidden="true" className="italic">
+        {italic}
+      </span>
       <span
         aria-hidden="true"
-        className={`ml-1 inline-block h-[0.78em] w-[2px] translate-y-[0.06em] bg-primary/70 ${done ? 'animate-caret' : ''}`}
+        className={`ml-1 inline-block h-[0.72em] w-[2px] translate-y-[0.04em] bg-reflective/70 ${done ? 'animate-caret' : ''}`}
       />
     </h1>
   );

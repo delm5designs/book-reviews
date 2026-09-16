@@ -100,7 +100,7 @@ export function BookDetail({ books, index, rect, onIndexChange, onClose }: BookD
         type="button"
         aria-label="Close"
         onClick={retract}
-        className="absolute inset-0 h-full w-full cursor-default border-0 bg-background/70 backdrop-blur-xl transition-opacity duration-700"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-page/75 backdrop-blur-xl transition-opacity duration-700"
         style={{ opacity: out ? 1 : 0 }}
       />
 
@@ -110,7 +110,7 @@ export function BookDetail({ books, index, rect, onIndexChange, onClose }: BookD
           <div className="absolute inset-0" style={{ background: book.spine }} />
           {/* The front cover, hinged at the spine's right edge. */}
           <div
-            className="absolute top-0 left-full overflow-hidden shadow-[0_40px_80px_-30px_rgba(40,30,20,0.9)]"
+            className="absolute top-0 left-full overflow-hidden"
             style={{
               width: coverWidthFor(book) * (rect.height / book.height),
               height: rect.height,
@@ -118,6 +118,8 @@ export function BookDetail({ books, index, rect, onIndexChange, onClose }: BookD
               transform: 'rotateY(90deg)',
               background: book.spine,
               color: book.ink,
+              // Raised elevation is reserved for dialogs, which this is.
+              boxShadow: 'var(--shadow-raised)',
             }}
           >
             <CoverArt book={book} />
@@ -141,9 +143,9 @@ function CoverArt({ book }: { book: Book }) {
 function TypesetCover({ book }: { book: Book }) {
   return (
     <div className="flex h-full w-full flex-col justify-between p-[6%] text-center" style={{ background: book.spine }}>
-      <span className="font-mono text-[6px] uppercase tracking-[0.3em] opacity-60">{book.publisher}</span>
-      <span className="font-display text-[9px] leading-tight">{book.title}</span>
-      <span className="font-mono text-[5px] uppercase tracking-[0.25em] opacity-70">{book.author}</span>
+      <span className="font-sans text-[6px] font-medium uppercase tracking-[0.2em] opacity-60">{book.publisher}</span>
+      <span className="display text-[9px]">{book.title}</span>
+      <span className="font-sans text-[5px] font-medium uppercase tracking-[0.2em] opacity-70">{book.author}</span>
     </div>
   );
 }
@@ -174,13 +176,13 @@ function DetailPanel({ book, pose, out, onClose, onPrev, onNext }: DetailPanelPr
         transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
-      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/80">
+      <p className="label">
         {book.finished ? `Finished ${book.finished}` : 'In the library'}
       </p>
-      <h2 className="mt-3 font-display text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.1]">{book.title}</h2>
-      <p className="mt-2 text-[17px] text-muted">{book.author}</p>
+      <h2 className="display mt-3 text-[clamp(28px,3.6vw,56px)] text-strong">{book.title}</h2>
+      <p className="mt-3 text-muted">{book.author}</p>
 
-      <p className="mt-4 font-mono text-[12px] uppercase tracking-[0.16em] text-muted">
+      <p className="label-muted mt-5">
         {[book.year > 0 ? book.year : null, book.publisher || null, book.binding].filter(Boolean).join(' · ')}
       </p>
 
@@ -189,17 +191,29 @@ function DetailPanel({ book, pose, out, onClose, onPrev, onNext }: DetailPanelPr
       {book.review ? (
         <Review text={book.review} spoiler={book.spoiler === true} />
       ) : (
-        book.blurb && <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-foreground/85">{book.blurb}</p>
+        book.blurb && <p className="measure-body mt-5 text-body">{book.blurb}</p>
       )}
 
-      <div className="mt-8 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.2em]">
-        <button type="button" onClick={onPrev} className="border border-border px-3 py-2 transition-colors hover:border-primary hover:text-primary">
+      <div className="mt-9 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onPrev}
+          className="label-muted rounded-[2px] border border-rule px-4 py-2.5 transition-colors hover:border-reflective hover:text-reflective"
+        >
           ← Previous
         </button>
-        <button type="button" onClick={onNext} className="border border-border px-3 py-2 transition-colors hover:border-primary hover:text-primary">
+        <button
+          type="button"
+          onClick={onNext}
+          className="label-muted rounded-[2px] border border-rule px-4 py-2.5 transition-colors hover:border-reflective hover:text-reflective"
+        >
           Next →
         </button>
-        <button type="button" onClick={onClose} className="px-3 py-2 text-muted transition-colors hover:text-foreground">
+        <button
+          type="button"
+          onClick={onClose}
+          className="label-muted px-3 py-2.5 transition-colors hover:text-strong"
+        >
           Close
         </button>
       </div>
@@ -216,7 +230,7 @@ function Review({ text, spoiler }: { text: string; spoiler: boolean }) {
       <button
         type="button"
         onClick={() => setRevealed(true)}
-        className="mt-5 border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted transition-colors hover:border-primary hover:text-primary"
+        className="label-muted mt-5 rounded-[2px] border border-rule px-4 py-2.5 transition-colors hover:border-reflective hover:text-reflective"
       >
         Contains spoilers · show review
       </button>
@@ -224,7 +238,7 @@ function Review({ text, spoiler }: { text: string; spoiler: boolean }) {
   }
 
   return (
-    <div className="mt-5 max-w-prose overflow-y-auto pr-1 text-[15px] leading-relaxed whitespace-pre-line text-foreground/85" style={{ maxHeight: '28vh' }}>
+    <div className="measure-body mt-5 overflow-y-auto pr-1 whitespace-pre-line text-body" style={{ maxHeight: '28vh' }}>
       {text}
     </div>
   );
@@ -232,12 +246,12 @@ function Review({ text, spoiler }: { text: string; spoiler: boolean }) {
 
 function Rating({ value }: { value: number }) {
   if (value <= 0) {
-    return <p className="mt-4 font-mono text-[12px] uppercase tracking-[0.2em] text-muted">Unrated</p>;
+    return <p className="label-muted mt-5">Unrated</p>;
   }
   return (
-    <p className="mt-4 flex items-center gap-1 text-primary" aria-label={`${value} out of 5`}>
+    <p className="mt-5 flex items-center gap-1 text-accent" aria-label={`${value} out of 5`}>
       {Array.from({ length: 5 }, (_, i) => (
-        <svg key={i} viewBox="0 0 20 20" className={`h-4 w-4 ${i < value ? 'fill-current' : 'fill-border'}`} aria-hidden="true">
+        <svg key={i} viewBox="0 0 20 20" className={`h-4 w-4 ${i < value ? 'fill-current' : 'fill-cream-500'}`} aria-hidden="true">
           <path d="M10 1.6l2.5 5.2 5.7.8-4.1 4 1 5.7L10 14.6l-5.1 2.7 1-5.7-4.1-4 5.7-.8z" />
         </svg>
       ))}
