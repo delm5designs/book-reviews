@@ -237,3 +237,128 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * The ring field.
+ *
+ * Four orbits at 16/26/40/58s in alternating directions, with a ring expanding
+ * through them every 7s. Always cropped: the field is larger than its frame, so
+ * the orbits run off the edges rather than reading as a logo.
+ *
+ * Ring colours are not defined in the guidelines, so they are drawn from the
+ * ramps: plum and sage inside, olive and ink outside.
+ */
+.ring-field {
+  --ring-width: 1px;
+  --ring-width-outer: 1.5px;
+  --ring-1: var(--color-plum-300);
+  --ring-2: var(--color-sage-400);
+  --ring-3: var(--color-olive-400);
+  --ring-4: var(--color-ink-300);
+  --orbit-1: 16s;
+  --orbit-2: 26s;
+  --orbit-3: 40s;
+  --orbit-4: 58s;
+  --pulse-cycle: 7s;
+
+  display: grid;
+  place-items: center;
+}
+
+.ring-field .ring {
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: var(--ring-width) solid;
+  display: grid;
+  place-items: center;
+}
+
+.ring-field .ring-1 {
+  width: calc(70px * var(--ring-scale));
+  border-color: var(--ring-1);
+  animation: ring-spin var(--orbit-1) linear infinite;
+}
+
+.ring-field .ring-2 {
+  width: calc(130px * var(--ring-scale));
+  border-color: var(--ring-2);
+  animation: ring-spin var(--orbit-2) linear infinite reverse;
+}
+
+.ring-field .ring-3 {
+  width: calc(190px * var(--ring-scale));
+  border-color: var(--ring-3);
+  animation: ring-spin var(--orbit-3) linear infinite;
+}
+
+.ring-field .ring-4 {
+  width: calc(250px * var(--ring-scale));
+  border-width: var(--ring-width-outer);
+  border-color: var(--ring-4);
+  animation: ring-spin var(--orbit-4) linear infinite reverse;
+}
+
+/* Each orbit carries a node, so its direction is readable. */
+.ring-field .ring-node {
+  position: absolute;
+  top: calc(-6px * var(--ring-scale));
+  width: calc(11px * var(--ring-scale));
+  height: calc(11px * var(--ring-scale));
+  border-radius: 50%;
+}
+
+.ring-field .ring-1 .ring-node {
+  background: var(--ring-1);
+}
+.ring-field .ring-2 .ring-node {
+  background: var(--ring-2);
+}
+.ring-field .ring-3 .ring-node {
+  background: var(--ring-3);
+}
+.ring-field .ring-4 .ring-node {
+  background: var(--color-ink-700);
+  top: calc(-4.5px * var(--ring-scale));
+  width: calc(8px * var(--ring-scale));
+  height: calc(8px * var(--ring-scale));
+}
+
+.ring-field .ring-pulse {
+  position: absolute;
+  width: calc(250px * var(--ring-scale));
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid var(--color-olive-600);
+  opacity: 0;
+  animation: ring-out var(--pulse-cycle) var(--ease-expand) infinite;
+}
+
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ring-out {
+  0% {
+    transform: scale(0.26);
+    opacity: 0;
+    border-color: var(--color-sage-500);
+  }
+  12% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.06);
+    opacity: 0;
+    border-color: var(--color-plum-500);
+  }
+}
+
+/* Held still rather than hidden, so the motif still reads. */
+@media (prefers-reduced-motion: reduce) {
+  .ring-field .ring-pulse {
+    opacity: 0.3;
+  }
+}

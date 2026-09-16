@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { books as library } from './data/books';
 import type { Book } from './types/book';
 import { readCoverPalette } from './lib/palette';
+import { RingField } from './components/RingField';
 import { TypedTitle } from './components/TypedTitle';
 import { LibraryFilter } from './components/LibraryFilter';
 import { Shelf } from './components/Shelf';
@@ -23,7 +24,15 @@ export default function App() {
       />
 
       <div className="relative">
-        <header className="animate-rise mx-auto w-full max-w-[1140px] px-[5vw] pt-10">
+        <header className="relative mx-auto w-full max-w-[1140px] px-[5vw] pt-10">
+          {/* Cropped by the header, so the orbits run off its edges. */}
+          <div className="pointer-events-none absolute inset-0 -top-24 overflow-hidden">
+            <div className="absolute top-1/2 right-[-6%] h-0 w-[46%] -translate-y-1/2">
+              <RingField scale={3.2} opacity={0.45} />
+            </div>
+          </div>
+
+          <div className="animate-rise relative">
           <p className="label rail-label">A personal archive</p>
           <div className="mt-3">
             <TypedTitle />
@@ -33,6 +42,7 @@ export default function App() {
           </p>
 
           {library.length > 0 && <LibraryFilter books={shelved} onChange={handleChange} />}
+          </div>
         </header>
 
         <main className="mt-2 pb-2">

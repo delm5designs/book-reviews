@@ -16,8 +16,8 @@ const ARROW_STEP = 320;
 const GAP = 2;
 /** How much of the rail a short row should try to fill, and how tall books may get. */
 const TARGET_FILL = 0.76;
-/** Space kept below the books for the shelf line, its shadow and the footer. */
-const BOTTOM_ROOM = 96;
+/** Space kept below the books for the board, its shadow and the footer. */
+const BOTTOM_ROOM = 156;
 const MAX_SCALE = 3;
 
 interface ShelfProps {
@@ -149,36 +149,94 @@ export function Shelf({ books, justAdded = null }: ShelfProps) {
     };
   }, [curve, measureScale, books]);
 
-  // Drag to pan.
+  /**
+   * Drag to pan, with momentum.
+   *
+   * Letting go used to stop the rail dead, which reads as a jam rather than a
+   * shelf. The velocity of the last few pointer samples carries on and decays
+   * exponentially, so the rail coasts and settles instead of stopping flat.
+   */
   useEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     let dragging = false;
     let startX = 0;
     let startScroll = 0;
+    // Recent pointer samples, newest last. A short window keeps the throw
+    // faithful to how the drag ended rather than how it began.
+    let samples: { x: number; t: number }[] = [];
+    let frame = 0;
+
+    const stopGlide = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    };
+
+    const glide = (velocity: number) => {
+      let v = velocity;
+      let last = performance.now();
+
+      const step = (now: number) => {
+        const dt = Math.min(48, now - last);
+        last = now;
+        rail.scrollLeft -= v * dt;
+        // Halves roughly every 130ms, so the rail eases to rest.
+        v *= Math.exp(-dt / 190);
+        frame = Math.abs(v) > 0.008 ? requestAnimationFrame(step) : 0;
+      };
+      frame = requestAnimationFrame(step);
+    };
 
     const down = (e: PointerEvent) => {
+      stopGlide();
       dragging = true;
       startX = e.clientX;
       startScroll = rail.scrollLeft;
+      samples = [{ x: e.clientX, t: performance.now() }];
     };
+
     const move = (e: PointerEvent) => {
       if (!dragging) return;
       rail.scrollLeft = startScroll - (e.clientX - startX);
+      const now = performance.now();
+      samples.push({ x: e.clientX, t: now });
+      while (samples.length > 2 && now - samples[0].t > 90) samples.shift();
     };
+
     const end = () => {
+      if (!dragging) return;
       dragging = false;
+      if (reduced || samples.length < 2) return;
+
+      const first = samples[0];
+      const last = samples[samples.length - 1];
+      const dt = last.t - first.t;
+      // Pausing before letting go means the reader placed the rail rather than
+      // threw it, so there is nothing to carry.
+      if (dt <= 0 || performance.now() - last.t > 70) return;
+
+      const v = (last.x - first.x) / dt;
+      if (Math.abs(v) > 0.05) glide(v);
     };
 
     rail.addEventListener("pointerdown", down);
     rail.addEventListener("pointermove", move);
     rail.addEventListener("pointerup", end);
+    rail.addEventListener("pointercancel", end);
     rail.addEventListener("pointerleave", end);
+    rail.addEventListener("wheel", stopGlide, { passive: true });
+
     return () => {
+      stopGlide();
       rail.removeEventListener("pointerdown", down);
       rail.removeEventListener("pointermove", move);
       rail.removeEventListener("pointerup", end);
+      rail.removeEventListener("pointercancel", end);
       rail.removeEventListener("pointerleave", end);
+      rail.removeEventListener("wheel", stopGlide);
     };
   }, []);
 
@@ -223,7 +281,7 @@ export function Shelf({ books, justAdded = null }: ShelfProps) {
 
   return (
     <div className="relative">
-      <div ref={railRef} className="no-scrollbar overflow-x-auto pt-16 pb-6">
+      <div ref={railRef} className="no-scrollbar overflow-x-auto pt-16">
         <div
           ref={trackRef}
           className={`flex items-end gap-[2px] ${overflowing ? "" : "justify-center"}`}
@@ -268,38 +326,25 @@ export function Shelf({ books, justAdded = null }: ShelfProps) {
         </div>
       </div>
 
-      {/* The shelf itself: a line of light where the books meet the wood, and the
-          shadow they cast. On a short row it tucks in to the width of the books,
-          so the boards never run on past the last spine. */}
+      {/* The board the books stand on: a hairline where they meet it, then a
+          sunken surface catching their shadow. On a short row the board tucks in
+          to the width of the books, so it never runs on past the last spine. */}
       <div
-        className="pointer-events-none absolute bottom-4 h-px bg-gradient-to-r from-transparent via-foreground/30 to-transparent"
-        style={
-          overflowing
-            ? { left: 0, right: 0 }
-            : {
-                left: "50%",
-                width: rowWidth + 160,
-                transform: "translateX(-50%)",
-              }
-        }
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 h-4 bg-gradient-to-b from-foreground/8 to-transparent"
-        style={
-          overflowing
-            ? { left: 0, right: 0 }
-            : {
-                left: "50%",
-                width: rowWidth + 120,
-                transform: "translateX(-50%)",
-              }
-        }
-      />
+        className="pointer-events-none relative mx-auto"
+        style={overflowing ? undefined : { width: Math.round(rowWidth) + 160 }}
+      >
+        <div className="h-px" style={{ background: "var(--rule)" }} />
+        <div
+          className="h-7 bg-sunken"
+          style={{ boxShadow: "inset 0 9px 12px -11px rgb(27 20 32 / 0.65)" }}
+        />
+        <div className="h-px opacity-60" style={{ background: "var(--rule)" }} />
+      </div>
 
       {overflowing && (
         <>
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-background to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-background to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-page to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-page to-transparent" />
         </>
       )}
 
