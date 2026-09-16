@@ -55,7 +55,7 @@ export function LibraryFilter({ books, onChange }: LibraryFilterProps) {
   const searching = debounced.length >= MIN_QUERY;
 
   return (
-    <div className="mt-8 w-full">
+    <div className="mt-6 w-full">
       <div className="relative max-w-xl">
         <label htmlFor="library-search" className="sr-only">
           What are you looking for?
@@ -74,7 +74,7 @@ export function LibraryFilter({ books, onChange }: LibraryFilterProps) {
       </div>
 
       {genres.length > 0 && (
-        <div className="no-scrollbar mt-5 flex gap-2 overflow-x-auto whitespace-nowrap">
+        <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto whitespace-nowrap">
           <Pill active={genre === null} onClick={() => setGenre(null)} label="All" count={books.length} />
           {genres.map((g) => (
             <Pill

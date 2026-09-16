@@ -110,6 +110,10 @@ function parseDate(value: string | undefined, order: DayMonthOrder): { sortKey: 
   return { sortKey: `${y}-${mo}-${d}`, label: `${MONTHS[monthIndex]} ${y}` };
 }
 
+function coverUrl(key: string): string {
+  return `https://covers.openlibrary.org/b/isbn/${key}-L.jpg?default=false`;
+}
+
 /** Stable 32-bit hash, so every derived physical property is reproducible. */
 function hash(input: string): number {
   let h = 2166136261;
@@ -249,7 +253,9 @@ function toBook(row: GoodreadsRow, index: number, order: DayMonthOrder): (Book &
   const id = slug(title, index);
   const seed = `${text(row['Book Id'])}:${title}`;
   const pages = positiveInt(row['Number of Pages']);
-  const key = isbn(row['ISBN13']) || isbn(row['ISBN']);
+  const isbn13 = isbn(row['ISBN13']);
+  const isbn10 = isbn(row['ISBN']);
+  const keys = [...new Set([isbn13, isbn10].filter(Boolean))];
   const read = parseDate(row['Date Read'], order);
   const added = parseDate(row['Date Added'], order);
   const rating = int(row['My Rating']) ?? 0;
@@ -261,7 +267,8 @@ function toBook(row: GoodreadsRow, index: number, order: DayMonthOrder): (Book &
     genres: genresFor(row),
     // ISBN-addressed covers need no API lookup. default=false makes Open
     // Library 404 rather than return a blank pixel, so the UI can fall back.
-    cover: key ? `https://covers.openlibrary.org/b/isbn/${key}-L.jpg?default=false` : '',
+    cover: keys[0] ? coverUrl(keys[0]) : '',
+    coverAlt: keys[1] ? coverUrl(keys[1]) : undefined,
     year: positiveInt(row['Original Publication Year']) ?? positiveInt(row['Year Published']) ?? 0,
     // Not fabricated: the export carries no description and this build has no
     // network. The detail view typesets title and author when blurb is empty.

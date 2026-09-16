@@ -12,6 +12,12 @@ export type Book = {
   genres?: string[];
   /** Real cover art. Empty string when the export carried no usable ISBN. */
   cover: string;
+  /**
+   * A second candidate, from the other ISBN in the export. Open Library
+   * indexes covers per edition, so the ISBN-13 can 404 where the ISBN-10
+   * resolves, and vice versa.
+   */
+  coverAlt?: string;
   year: number;
   blurb: string;
   /** 0 means unrated. */

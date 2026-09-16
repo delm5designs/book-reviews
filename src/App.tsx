@@ -23,9 +23,9 @@ export default function App() {
       />
 
       <div className="relative">
-        <header className="animate-rise mx-auto max-w-6xl px-6 pt-16 sm:px-10">
+        <header className="animate-rise mx-auto max-w-6xl px-6 pt-10 sm:px-10">
           <p className="font-mono text-[11px] uppercase tracking-[0.34em] text-muted">A personal archive</p>
-          <div className="mt-4">
+          <div className="mt-3">
             <TypedTitle />
           </div>
           <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
@@ -35,7 +35,7 @@ export default function App() {
           {library.length > 0 && <LibraryFilter books={shelved} onChange={handleChange} />}
         </header>
 
-        <main className="mt-6 pb-2">
+        <main className="mt-2 pb-2">
           {library.length === 0 ? (
             <EmptyShelf />
           ) : shown.length === 0 ? (
@@ -69,7 +69,9 @@ function useCoverPalettes(books: Book[]): Book[] {
 
     void Promise.all(
       withCovers.map(async (book) => {
-        const palette = await readCoverPalette(book.cover);
+        const palette =
+          (await readCoverPalette(book.cover)) ??
+          (book.coverAlt ? await readCoverPalette(book.coverAlt) : null);
         if (live && palette) setSampled((prev) => ({ ...prev, [book.id]: palette }));
       }),
     );

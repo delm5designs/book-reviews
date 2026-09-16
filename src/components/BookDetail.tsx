@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { Book } from '../types/book';
+import { useCover } from '../lib/useCover';
 import { COVER_W } from './bookFaces';
 
 export interface SpineRect {
@@ -126,18 +127,11 @@ export function BookDetail({ books, index, rect, onIndexChange, onClose }: BookD
   );
 }
 
-/** Open Library 404s for plenty of ISBNs, so a failed load falls back too. */
+/** Open Library 404s for plenty of ISBNs, so a book may set its own cover. */
 function CoverArt({ book }: { book: Book }) {
-  const [failed, setFailed] = useState(false);
-  if (!book.cover || failed) return <TypesetCover book={book} />;
-  return (
-    <img
-      src={book.cover}
-      alt=""
-      className="h-full w-full object-cover"
-      onError={() => setFailed(true)}
-    />
-  );
+  const cover = useCover(book);
+  if (!cover) return <TypesetCover book={book} />;
+  return <img src={cover} alt="" className="h-full w-full object-cover" />;
 }
 
 /** Shown when Open Library has no artwork: the book sets its own cover. */
