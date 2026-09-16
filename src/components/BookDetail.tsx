@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { Book } from '../types/book';
 import { useCover } from '../lib/useCover';
-import { COVER_W } from './bookFaces';
+import { coverWidthFor } from './bookFaces';
 
 export interface SpineRect {
   left: number;
@@ -60,9 +60,12 @@ export function BookDetail({ books, index, rect, onIndexChange, onClose }: BookD
     const vh = window.innerHeight;
     const narrow = vw < 720;
 
-    const coverH = narrow ? vh * 0.42 : Math.min(vh * 0.6, 480);
+    const coverH = narrow ? vh * 0.42 : Math.min(vh * 0.6, 520);
+    // rect.height is the spine as drawn, which already carries the shelf's
+    // display scale. The cover has to be derived from the book's own height,
+    // or that scale gets applied twice and the cover comes out too narrow.
     const scale = coverH / rect.height;
-    const coverW = COVER_W * scale;
+    const coverW = coverWidthFor(book) * (coverH / book.height);
 
     // rotateY(-90deg) swings the hinged cover into view. The hinge is the
     // spine's right edge and the cover folds away from the reader, so after the
@@ -76,7 +79,7 @@ export function BookDetail({ books, index, rect, onIndexChange, onClose }: BookD
     const targetY = narrow ? vh * 0.34 : vh / 2;
 
     return { dx: targetX - coverCentreX, dy: targetY - coverCentreY, scale, coverW, coverH, narrow };
-  }, [rect]);
+  }, [rect, book]);
 
   const shelfPose = 'translate3d(0,0,0) scale(1) rotateY(-26deg)';
   const outPose = `translate3d(${pose.dx}px, ${pose.dy}px, 0) scale(${pose.scale}) rotateY(-90deg)`;
@@ -109,7 +112,7 @@ export function BookDetail({ books, index, rect, onIndexChange, onClose }: BookD
           <div
             className="absolute top-0 left-full overflow-hidden shadow-[0_40px_80px_-30px_rgba(40,30,20,0.9)]"
             style={{
-              width: COVER_W,
+              width: coverWidthFor(book) * (rect.height / book.height),
               height: rect.height,
               transformOrigin: 'left center',
               transform: 'rotateY(90deg)',
@@ -183,7 +186,11 @@ function DetailPanel({ book, pose, out, onClose, onPrev, onNext }: DetailPanelPr
 
       <Rating value={book.rating} />
 
-      {book.blurb && <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-foreground/85">{book.blurb}</p>}
+      {book.review ? (
+        <Review text={book.review} spoiler={book.spoiler === true} />
+      ) : (
+        book.blurb && <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-foreground/85">{book.blurb}</p>
+      )}
 
       <div className="mt-8 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.2em]">
         <button type="button" onClick={onPrev} className="border border-border px-3 py-2 transition-colors hover:border-primary hover:text-primary">
@@ -196,6 +203,29 @@ function DetailPanel({ book, pose, out, onClose, onPrev, onNext }: DetailPanelPr
           Close
         </button>
       </div>
+    </div>
+  );
+}
+
+/** My review, with paragraph breaks kept and spoilers held back until asked for. */
+function Review({ text, spoiler }: { text: string; spoiler: boolean }) {
+  const [revealed, setRevealed] = useState(!spoiler);
+
+  if (!revealed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setRevealed(true)}
+        className="mt-5 border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted transition-colors hover:border-primary hover:text-primary"
+      >
+        Contains spoilers · show review
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-5 max-w-prose overflow-y-auto pr-1 text-[15px] leading-relaxed whitespace-pre-line text-foreground/85" style={{ maxHeight: '28vh' }}>
+      {text}
     </div>
   );
 }

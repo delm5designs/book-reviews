@@ -64,6 +64,7 @@ jobs:
             echo "| Books on the shelf | $(echo "$SUMMARY" | jq -r .total) |"
             echo "| With cover art | $(echo "$SUMMARY" | jq -r .withCover) |"
             echo "| Rated | $(echo "$SUMMARY" | jq -r .rated) |"
+            echo "| Reviewed | $(echo "$SUMMARY" | jq -r .reviewed) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Type-check, lint and build

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { Book } from '../types/book';
 import { useCover } from '../lib/useCover';
-import { COVER_W, faceFont } from './bookFaces';
+import { coverWidthFor, faceFont } from './bookFaces';
 
 /** Hover pose, per Section 7. The book pulls toward the reader and lifts. */
 const PULL = 96;
@@ -72,7 +72,7 @@ export function BookSpine({ book, scale, onOpen }: BookSpineProps) {
 
   const w = Math.round(book.width * scale);
   const h = Math.round(book.height * scale);
-  const coverW = COVER_W * scale;
+  const coverW = coverWidthFor(book) * scale;
 
   const lean = hovered ? 0 : book.lean;
   const translateZ = (hovered ? PULL : 0) + book.depth;
@@ -197,7 +197,7 @@ export function BookSpine({ book, scale, onOpen }: BookSpineProps) {
             style={{
               bottom: '100%',
               width: w,
-              height: coverW * 0.42,
+              height: coverW * 0.6,
               transformOrigin: 'bottom center',
               transform: 'rotateX(78deg)',
               background: 'linear-gradient(90deg, #efe6d4 0%, #ddd0b9 40%, #c9bba2 100%)',

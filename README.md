@@ -69,6 +69,11 @@ TypeScript sources that only exist compiled inside `dist/`.
 2. Replace `data/goodreads_library_export.csv` (same filename) and push to `main`.
 3. Both workflows run; the site is redeployed within a couple of minutes.
 
+Reviews, ratings, read dates and shelf tags are all read from that export, so
+they are written on Goodreads rather than in this repository. See
+**[UPDATING.md](UPDATING.md)** for a step-by-step version that needs no
+command line.
+
 ## Out of scope by design
 
 - No AI search endpoint (build guide Section 5). Search is the guide's
@@ -76,5 +81,5 @@ TypeScript sources that only exist compiled inside `dist/`.
 - No database or server component (build guide Section 6), so there is no
   visitor "Recommend a book" shelf.
 - No invented or placeholder books, and no invented blurbs. The Goodreads export
-  carries no descriptions and the build has no network, so `blurb` is empty and
-  the detail view typesets the title and author instead.
+  carries no book descriptions and the build has no network, so `blurb` is empty.
+  Your own reviews, from the export's "My Review" column, are shown in full.

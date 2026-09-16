@@ -20,6 +20,10 @@ export type Book = {
   coverAlt?: string;
   year: number;
   blurb: string;
+  /** My own review, from the Goodreads "My Review" column. Empty when unwritten. */
+  review: string;
+  /** True when Goodreads marks the review as containing spoilers. */
+  spoiler?: boolean;
   /** 0 means unrated. */
   rating: number;
   /** e.g. "Jul 2026". Empty when the export has no read date. */

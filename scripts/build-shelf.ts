@@ -110,6 +110,31 @@ function parseDate(value: string | undefined, order: DayMonthOrder): { sortKey: 
   return { sortKey: `${y}-${mo}-${d}`, label: `${MONTHS[monthIndex]} ${y}` };
 }
 
+/**
+ * Reviews arrive with `<br/>` line breaks, and a spreadsheet-saved export
+ * carries real newlines inside the quoted field. Paragraph breaks must survive
+ * both, so unlike text() this collapses only horizontal whitespace.
+ */
+function review(value: string | undefined): string {
+  const raw = (value ?? '').trim();
+  if (raw.length === 0) return '';
+  return raw
+    .replace(/\r\n?/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(p|div)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .split('\n')
+    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function coverUrl(key: string): string {
   return `https://covers.openlibrary.org/b/isbn/${key}-L.jpg?default=false`;
 }
@@ -273,6 +298,8 @@ function toBook(row: GoodreadsRow, index: number, order: DayMonthOrder): (Book &
     // Not fabricated: the export carries no description and this build has no
     // network. The detail view typesets title and author when blurb is empty.
     blurb: '',
+    review: review(row['My Review']),
+    spoiler: (text(row['Spoiler']) || '').toLowerCase() === 'true' ? true : undefined,
     rating: rating > 0 ? rating : 0,
     finished: read?.label ?? '',
     publisher: text(row['Publisher']),
@@ -353,14 +380,21 @@ function main(): void {
   write(books);
 
   const withCover = books.filter((b) => b.cover !== '').length;
+  const reviewed = books.filter((b) => b.review !== '').length;
   console.log(`✔ Wrote ${books.length} books to src/data/books.ts`);
   console.log(`  ${'with cover art'.padEnd(18)} ${withCover}`);
   console.log(`  ${'rated'.padEnd(18)} ${books.filter((b) => b.rating > 0).length}`);
   console.log(`  ${'with read date'.padEnd(18)} ${books.filter((b) => b.finished !== '').length}`);
+  console.log(`  ${'reviewed'.padEnd(18)} ${reviewed}`);
   if (skipped > 0) console.log(`  skipped ${skipped} row(s): no id/title, or not on a read shelf`);
 
   if (process.env.GITHUB_OUTPUT) {
-    const summary = { total: books.length, withCover, rated: books.filter((b) => b.rating > 0).length };
+    const summary = {
+      total: books.length,
+      withCover,
+      rated: books.filter((b) => b.rating > 0).length,
+      reviewed,
+    };
     writeFileSync(process.env.GITHUB_OUTPUT, `summary=${JSON.stringify(summary)}\n`, { flag: 'a' });
   }
 }
